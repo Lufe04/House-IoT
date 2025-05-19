@@ -20,7 +20,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 
-import { auth, db } from '../utils/FirebaseConfig';        // Firestore y Auth
+import { auth, db } from '../utils/FirebaseConfig';
 import {
   getDatabase,
   ref as rtdbRef,
@@ -28,12 +28,12 @@ import {
   update as rtdbUpdate,
   get as rtdbGet,
   remove as rtdbRemove,
-} from 'firebase/database';                                // Realtime DB
+} from 'firebase/database';
 
 /* ------------------------------------------------------------------ */
 /*  Tipos                                                              */
 /* ------------------------------------------------------------------ */
-type UserRole = 'child' | 'parent';
+export type UserRole = 'father' | 'mother' | 'child';
 
 export interface UserData {
   id?: string;
@@ -48,10 +48,7 @@ interface AuthContextType {
   userData: UserData | null;
   loading: boolean;
 
-  login: (
-    email: string,
-    password: string
-  ) => Promise<UserData | null>;
+  login: (email: string, password: string) => Promise<UserData | null>;
   register: (
     email: string,
     password: string,
@@ -97,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setCurrentUser(user);
 
       if (user) {
-        // 1º intentamos Firestore (fuente “maestra”)
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           setUserData({ id: user.uid, ...userDoc.data() } as UserData);
@@ -169,10 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateUserData = async (patch: Partial<UserData>) => {
     if (!currentUser || !userData) throw new Error('No user');
 
-    /* Firestore */
     await updateDoc(doc(db, 'users', currentUser.uid), patch);
-
-    /* RTDB */
     await rtdbUpdate(rtdbRef(rtdb, `users/${currentUser.uid}`), patch);
 
     setUserData({ ...userData, ...patch });
@@ -187,10 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getUserByEmail = async (email: string) => {
-    const q = query(
-      collection(db, 'users'),
-      where('correo', '==', email)
-    );
+    const q = query(collection(db, 'users'), where('correo', '==', email));
     const snap = await getDocs(q);
     if (!snap.empty) {
       const d = snap.docs[0];
@@ -212,17 +202,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const deleteUser = async () => {
     if (!currentUser) throw new Error('No user');
 
-    // Firestore
     await deleteDoc(doc(db, 'users', currentUser.uid));
-    // RTDB
     await rtdbRemove(rtdbRef(rtdb, `users/${currentUser.uid}`));
-    // Auth
     await currentUser.delete();
 
     setUserData(null);
   };
 
-  /* ---------------- context value ---------------------- */
   const value: AuthContextType = {
     currentUser,
     userData,
